@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <base href="./builds/fw-fonts-20261025-1/">
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-  <title>PhotoCraft</title>
-  
+  <title>PhotoCraft — Friday Works build</title>
+
 <script type="module">
 import init, * as bindings from './photocraft-web-boot-26446d01b24367d7.js';
 const wasm = await init({ module_or_path: './photocraft-web-boot-26446d01b24367d7_bg.wasm' });
@@ -32,7 +33,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
 <body>
   <canvas id="photocraft_canvas"></canvas>
   <div id="photocraft_loading">
-    <p>Loading PhotoCraft&hellip;</p>
+    <p>Loading PhotoCraft — Friday Works build&hellip;</p><p>Based on PhotoCraft 0.15.1 by the ArtCraft team. Automatic Be Vietnam Pro loading.</p>
     <p id="photocraft_stalled">This is taking longer than usual. If PhotoCraft doesn't start, its files may have failed to
       download or come from a different version of this page. <a href="">Reload</a> to try again; the browser
       console lists what failed.</p>

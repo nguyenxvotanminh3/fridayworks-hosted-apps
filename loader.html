@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="robots" content="noindex">
+  <title>Friday Works</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #1c1d20; }
+    #app { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+    #progress {
+      position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; gap: 14px;
+      align-items: center; justify-content: center; background: #1c1d20; color: #eef0f3;
+      font: 600 22px/1 system-ui, -apple-system, "Segoe UI", sans-serif; font-variant-numeric: tabular-nums;
+    }
+    #bar { width: min(260px, 64vw); height: 4px; overflow: hidden; border-radius: 2px; background: #34373d; }
+    #fill { width: 0; height: 100%; border-radius: inherit; background: #4c8dff; transition: width .2s ease-out; }
+    #progress.indeterminate #percent { display: none; }
+    #progress.indeterminate #fill { width: 30%; animation: slide 1.2s ease-in-out infinite; }
+    @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+    @media (prefers-reduced-motion: reduce) {
+      #fill { transition: none; }
+      #progress.indeterminate #fill { width: 100%; animation: none; opacity: .5; }
+    }
+  </style>
+</head>
+<body>
+  <div id="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+    <div id="percent">0%</div>
+    <div id="bar"><div id="fill"></div></div>
+  </div>
+  <script>
+    // Friday Works' loading page for the hosted apps; it is not part of either app.
+    // It shows how much of the app has downloaded, using byte counts from
+    // progress-sw.js, then hands the screen to the unmodified app in a frame once
+    // the app reports that it is running. Browsers without service workers get a
+    // moving bar instead of a number.
+    (() => {
+      // Decoded bytes of each app's .wasm, .js and .part-* files; updated by
+      // scripts/loader-sizes.mjs whenever an app is replaced.
+      const startupBytes = {"photocraft":12258586,"filmcraft":41673333};
+      const apps = {
+        photocraft: { name: "PhotoCraft", ready: (w) => !w.document.getElementById("photocraft_loading") },
+        filmcraft: { name: "FilmCraft", ready: (w) => Boolean(w.filmcraftLoad && (w.filmcraftLoad.readyMs || w.filmcraftLoad.error || w.filmcraftLoad.fatal)) },
+      };
+      const params = new URLSearchParams(location.search);
+      const id = params.get("app");
+      const app = apps[id];
+      const progress = document.getElementById("progress");
+      if (!app) {
+        progress.remove();
+        return;
+      }
+      document.title = app.name;
+      progress.setAttribute("aria-label", app.name);
+      const percent = document.getElementById("percent");
+      const fill = document.getElementById("fill");
+      const token = crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2);
+      let received = 0;
+      let frame = null;
+      let frameAt = 0;
+      let lastBytesAt = performance.now();
+      let done = false;
+      let channel = null;
+
+      function show(value) {
+        percent.textContent = `${value}%`;
+        fill.style.width = `${value}%`;
+        progress.setAttribute("aria-valuenow", String(value));
+      }
+      function indeterminate() {
+        progress.classList.add("indeterminate");
+        progress.removeAttribute("aria-valuenow");
+      }
+      function reveal() {
+        if (done) return;
+        done = true;
+        clearInterval(poll);
+        if (channel) channel.close();
+        progress.remove();
+      }
+
+      if ("BroadcastChannel" in window) {
+        channel = new BroadcastChannel("fw-load-progress");
+        channel.onmessage = (event) => {
+          const message = event.data;
+          if (!message || message.token !== token || done) return;
+          received += message.bytes || 0;
+          lastBytesAt = performance.now();
+          show(Math.min(99, Math.floor((received / startupBytes[id]) * 100)));
+        };
+      }
+
+      function start() {
+        if (frame) return;
+        const url = new URL(`${id}/`, location.href);
+        params.forEach((value, key) => { if (key !== "app") url.searchParams.set(key, value); });
+        url.searchParams.set("fwload", token);
+        frame = document.createElement("iframe");
+        frame.id = "app";
+        frame.title = app.name;
+        frame.allow = "fullscreen; clipboard-read; clipboard-write";
+        frame.allowFullscreen = true;
+        frame.src = url.href;
+        document.body.prepend(frame);
+        frameAt = performance.now();
+      }
+
+      const poll = setInterval(() => {
+        if (!frame) return;
+        const now = performance.now();
+        try {
+          const w = frame.contentWindow;
+          const loaded = w.location.pathname.endsWith(`/${id}/`) && w.document.readyState !== "loading";
+          if (loaded && app.ready(w)) return reveal();
+          // No service worker in front of the app, or no counts arriving: a number
+          // would stay at 0%, so show a moving bar instead.
+          if (loaded && !progress.classList.contains("indeterminate") && (!w.navigator.serviceWorker || !w.navigator.serviceWorker.controller || (received === 0 && now - frameAt > 5000))) indeterminate();
+        } catch {
+          return reveal();
+        }
+        // Stalled or failed: let the app's own message show.
+        if (now - lastBytesAt > 30000 || now - frameAt > 180000) reveal();
+      }, 150);
+
+      if ("serviceWorker" in navigator && channel) {
+        const timeout = new Promise((resolve) => setTimeout(resolve, 2500));
+        Promise.race([navigator.serviceWorker.register("progress-sw.js").then(() => navigator.serviceWorker.ready), timeout])
+          .catch(() => {})
+          .then(start);
+      } else {
+        indeterminate();
+        start();
+      }
+    })();
+  </script>
+</body>
+</html>

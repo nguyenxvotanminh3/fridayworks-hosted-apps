@@ -36,13 +36,18 @@
     // progress-sw.js, then hands the screen to the unmodified app in a frame once
     // the app reports that it is running. Browsers without service workers get a
     // moving bar instead of a number.
+    //
+    // Exports are downloads to the visitor's machine, and the apps keep nothing
+    // else here: FilmCraft would copy every imported video into this site's
+    // browser storage (OPFS) for crash recovery, so it is shown a browser without
+    // OPFS (it checks before every write) and earlier copies are deleted.
     (() => {
       // Decoded bytes of each app's .wasm, .js and .part-* files; updated by
       // scripts/loader-sizes.mjs whenever an app is replaced.
       const startupBytes = {"photocraft":12258586,"filmcraft":41673333};
       const apps = {
         photocraft: { name: "PhotoCraft", ready: (w) => !w.document.getElementById("photocraft_loading") },
-        filmcraft: { name: "FilmCraft", ready: (w) => Boolean(w.filmcraftLoad && (w.filmcraftLoad.readyMs || w.filmcraftLoad.error || w.filmcraftLoad.fatal)) },
+        filmcraft: { name: "FilmCraft", noOpfs: true, ready: (w) => Boolean(w.filmcraftLoad && (w.filmcraftLoad.readyMs || w.filmcraftLoad.error || w.filmcraftLoad.fatal)) },
       };
       const params = new URLSearchParams(location.search);
       const id = params.get("app");
@@ -92,6 +97,16 @@
         };
       }
 
+      function hideOpfs(w) {
+        const storage = w && w.StorageManager && w.StorageManager.prototype;
+        if (storage && "getDirectory" in storage) delete storage.getDirectory;
+      }
+      if (navigator.storage && navigator.storage.getDirectory) {
+        navigator.storage.getDirectory()
+          .then((root) => Promise.all(["media", "recovery"].map((name) => root.removeEntry(name, { recursive: true }).catch(() => {}))))
+          .catch(() => {});
+      }
+
       function start() {
         if (frame) return;
         const url = new URL(`${id}/`, location.href);
@@ -104,6 +119,10 @@
         frame.allowFullscreen = true;
         frame.src = url.href;
         document.body.prepend(frame);
+        // The app document reuses this frame's first, same-origin window, so the
+        // change already holds when its scripts start; the poll below repeats it
+        // for browsers that create a new window.
+        if (app.noOpfs) hideOpfs(frame.contentWindow);
         frameAt = performance.now();
       }
 
@@ -112,6 +131,7 @@
         const now = performance.now();
         try {
           const w = frame.contentWindow;
+          if (app.noOpfs && w.location.pathname.endsWith(`/${id}/`)) hideOpfs(w);
           const loaded = w.location.pathname.endsWith(`/${id}/`) && w.document.readyState !== "loading";
           if (loaded && app.ready(w)) return reveal();
           // No service worker in front of the app, or no counts arriving: a number

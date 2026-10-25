@@ -33,7 +33,9 @@ The ArtCraft name, wordmark and logos are trademarks of the ArtCraft Team and ar
 
 ## Privacy
 
-Both apps run entirely in the visitor's browser. Files are opened from and saved to the visitor's own device. This site has no server-side code, analytics or cookies.
+Both apps run entirely in the visitor's browser. Files are opened from the visitor's device, and every save or export is a download back to it. This site has no server-side code, analytics or cookies.
+
+Through `loader.html`, nothing else is stored apart from the apps' small settings: PhotoCraft's preferences and brush presets. FilmCraft would normally copy every imported video into this site's browser storage (OPFS) for crash recovery. The loader shows FilmCraft a browser without OPFS (FilmCraft checks before every write) and deletes copies left by earlier visits. In exchange, an unexported FilmCraft project is not recovered after the tab closes.
 
 FilmCraft's optional speech features (transcription and text-to-speech) download model weights from huggingface.co only after the user confirms a dialog that shows the size, source and licence.
 

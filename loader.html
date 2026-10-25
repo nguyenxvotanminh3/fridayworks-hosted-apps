@@ -44,7 +44,7 @@
     (() => {
       // Decoded bytes of each app's .wasm, .js and .part-* files; updated by
       // scripts/loader-sizes.mjs whenever an app is replaced.
-      const startupBytes = {"photocraft":12204149,"filmcraft":41673333};
+      const startupBytes = {"photocraft":12205031,"filmcraft":41673333};
       const apps = {
         photocraft: { name: "PhotoCraft", ready: (w) => !w.document.getElementById("photocraft_loading") },
         filmcraft: { name: "FilmCraft", noOpfs: true, ready: (w) => Boolean(w.filmcraftLoad && (w.filmcraftLoad.readyMs || w.filmcraftLoad.error || w.filmcraftLoad.fatal)) },

@@ -1,0 +1,2 @@
+# family | style | file | scripts | licence | licence file | sha256 | source
+Be Vietnam Pro | Regular | fonts/be-vietnam-pro/BeVietnamPro-Regular.ttf | Latn | OFL-1.1 | fonts/be-vietnam-pro/OFL.txt | cd1ef6e9d7db28ad5cdb88a65ccbe693870e60d340b791f349d248342b4fe4c3 | https://raw.githubusercontent.com/google/fonts/c13390277dfb1fcc7415d84ef7ef9cfc1e52f8c1/ofl/bevietnampro/BeVietnamPro-Regular.ttf

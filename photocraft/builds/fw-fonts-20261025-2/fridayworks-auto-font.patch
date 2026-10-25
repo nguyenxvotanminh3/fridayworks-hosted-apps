@@ -1,0 +1,274 @@
+diff --git a/apps/photocraft-web/index.html b/apps/photocraft-web/index.html
+index d090cf4..112de33 100644
+--- a/apps/photocraft-web/index.html
++++ b/apps/photocraft-web/index.html
+@@ -3,7 +3,7 @@
+ <head>
+   <meta charset="utf-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+-  <title>PhotoCraft</title>
++  <title>PhotoCraft — Friday Works build</title>
+   <link data-trunk rel="rust" data-bin="photocraft-web" data-cargo-profile="wasm-release" data-cargo-features="heif" data-wasm-opt="z" data-wasm-opt-params="--converge" data-weak-refs />
+   <style>
+     html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #262626; }
+@@ -21,7 +21,8 @@
+ <body>
+   <canvas id="photocraft_canvas"></canvas>
+   <div id="photocraft_loading">
+-    <p>Loading PhotoCraft&hellip;</p>
++    <p>Loading PhotoCraft — Friday Works build&hellip;</p>
++    <p>Based on PhotoCraft 0.15.1 by the ArtCraft team. Includes automatic host font registration.</p>
+     <p id="photocraft_stalled">This is taking longer than usual. If PhotoCraft doesn't start, its files may have failed to
+       download or come from a different version of this page. <a href="">Reload</a> to try again; the browser
+       console lists what failed.</p>
+diff --git a/apps/photocraft-web/src/main.rs b/apps/photocraft-web/src/main.rs
+index 0802a02..b49474c 100644
+--- a/apps/photocraft-web/src/main.rs
++++ b/apps/photocraft-web/src/main.rs
+@@ -16,6 +16,9 @@
+ 
+ #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
+ 
++#[cfg(any(target_arch = "wasm32", test))]
++mod startup_fonts;
++
+ #[cfg(any(target_arch = "wasm32", test))]
+ mod preset_bridge;
+ 
+diff --git a/apps/photocraft-web/src/web.rs b/apps/photocraft-web/src/web.rs
+index 87e6eaf..092563b 100644
+--- a/apps/photocraft-web/src/web.rs
++++ b/apps/photocraft-web/src/web.rs
+@@ -74,6 +74,10 @@ pub fn start() {
+                 (None, bridge, Vec::new())
+             }
+         };
++        // Cached PSD type pixels can bypass layout entirely. Register our host font before the
++        // first interactive frame, so Open, drag/drop and restored files all validate against it.
++        let (served, font_warnings) = load_font_manifest().await;
++        let served: Served = Arc::new(Mutex::new(served));
+         let pen_target = canvas.clone();
+         let result = eframe::WebRunner::new()
+             .start(
+@@ -83,12 +87,16 @@ pub fn start() {
+                     PhotocraftApp::setup_context(&cc.egui_ctx, ThemeKind::Pro);
+                     let inbox: Inbox = Arc::default();
+                     let place_inbox: Inbox = Arc::default();
+-                    let served: Served = Arc::default();
+-                    load_font_manifest(served.clone(), cc.egui_ctx.clone());
++
+                     let (session, warnings) = crate::preset_bridge::session(presets.clone());
+                     preset_warnings.extend(warnings);
+                     let drag = listen_drag(&pen_target);
+                     let mut app = PhotocraftApp::new(session, services(inbox.clone(), place_inbox.clone(), drag_pos_service(pen_target.clone(), drag)));
++                    let delivered = std::mem::take(&mut served.lock().unwrap_or_else(|e| e.into_inner()).arrived);
++                    served_fonts::install(&mut app, delivered);
++                    if !font_warnings.is_empty() {
++                        photocraft_ui_egui::notices::post(&mut app, "Be Vietnam Pro could not be loaded", font_warnings, true, None);
++                    }
+                     if !preset_warnings.is_empty() {
+                         photocraft_ui_egui::notices::post(&mut app, i18n::t("Some brush presets could not be loaded"), preset_warnings, true, None);
+                     }
+@@ -199,33 +207,44 @@ fn query() -> String {
+     web_sys::window().and_then(|w| w.location().search().ok()).unwrap_or_default()
+ }
+ 
+-/// Reads the served font manifest, if the host has one, and lists its families in the font menus.
+-fn load_font_manifest(served: Served, ctx: egui::Context) {
+-    wasm_bindgen_futures::spawn_local(async move {
+-        // Most hosts serve no fonts: a missing manifest is the normal case, not an error.
+-        let Ok(bytes) = fetch_bytes(FONTS_MANIFEST, None).await else { return };
+-        let text = String::from_utf8_lossy(&bytes);
+-        // A host that answers unknown paths with its HTML page (single-page app fallback).
+-        if text.trim_start().starts_with('<') {
+-            return;
+-        }
+-        let (fonts, skipped) = served_fonts::parse_manifest(&text);
+-        for s in skipped {
+-            log::warn!("{FONTS_MANIFEST}: skipped {s}");
++/// Hydrate the host catalog and designated startup fonts before document imports can run.
++/// Failed downloads do not register fake fonts: opening remains possible with an explicit notice.
++async fn load_font_manifest() -> (ServedFonts, Vec<String>) {
++    let mut served = ServedFonts::default();
++    let mut warnings = Vec::new();
++    let bytes = match fetch_bytes(FONTS_MANIFEST, None).await {
++        Ok(bytes) => bytes,
++        Err(e) => return (served, vec![format!("Could not load the host font catalog: {e}. Reload to retry; other fonts are not replaced.")]),
++    };
++    let text = String::from_utf8_lossy(&bytes);
++    if text.trim_start().starts_with('<') {
++        return (served, vec!["The host font catalog returned a web page instead of a manifest. Reload to retry.".into()]);
++    }
++    let (fonts, skipped) = served_fonts::parse_manifest(&text);
++    for s in skipped {
++        log::warn!("{FONTS_MANIFEST}: skipped {s}");
++    }
++    for f in &fonts {
++        served.files.entry(f.family.clone()).or_default().push((f.file.clone(), f.integrity.clone()));
++    }
++    served_fonts::add_fonts(&fonts);
++    let startup = crate::startup_fonts::required(&fonts);
++    for family in crate::startup_fonts::FAMILIES {
++        if !startup.iter().any(|f| f.family == *family) {
++            warnings.push(format!("{family} is absent from the host font catalog. Other document fonts are not replaced."));
+         }
+-        let mut files: HashMap<String, Vec<(String, Option<String>)>> = HashMap::new();
+-        for f in &fonts {
+-            files.entry(f.family.clone()).or_default().push((f.file.clone(), f.integrity.clone()));
++    }
++    for font in startup {
++        match fetch_bytes(&font.file, font.integrity.as_deref()).await {
++            Ok(bytes) => {
++                served.fetched.insert(font.family.clone());
++                served.arrived.push((font.family, bytes));
++            }
++            Err(e) => warnings.push(format!("{} ({}): {e}. Reload to retry before editing text.", font.family, font.file)),
+         }
+-        log::info!("photocraft-web: {} served font families", files.len());
+-        served.lock().unwrap_or_else(|e| e.into_inner()).files = files;
+-        // The families for the font menus, and the script fallbacks (the manifest's `scripts`).
+-        served_fonts::add_fonts(&fonts);
+-        // Fetch now the fallbacks of the scripts the browser's languages use (an Arabic reader gets
+-        // the Arabic font before typing); the rest is fetched when text or a font menu needs it.
+-        served_fonts::request_for_languages(browser_languages().iter().map(String::as_str));
+-        ctx.request_repaint();
+-    });
++    }
++    served_fonts::request_for_languages(browser_languages().iter().map(String::as_str));
++    (served, warnings)
+ }
+ 
+ /// The browser's preferred languages (`navigator.languages`, e.g. `["ar-EG", "en"]`).
+@@ -240,20 +259,38 @@ async fn fetch_bytes(url: &str, integrity: Option<&str>) -> Result<Vec<u8>, Stri
+     if !served_fonts::is_relative_path(url) {
+         return Err("url must be a relative path".into());
+     }
+-    let js = |e: wasm_bindgen::JsValue| format!("{e:?}");
++    let js = |e: wasm_bindgen::JsValue| {
++        // Request failures are shown in a user notice as well as logged: never dump a WASM
++        // stack trace into the editor. Keep the browser's short reason, not Debug's stack.
++        e.dyn_ref::<js_sys::Error>()
++            .map(|error| format!("{}: {}", error.name(), error.message()))
++            .unwrap_or_else(|| "The browser could not complete or verify the download".into())
++    };
+     let window = web_sys::window().ok_or("no window")?;
+     let init = web_sys::RequestInit::new();
+     init.set_mode(web_sys::RequestMode::SameOrigin);
+     if let Some(sri) = integrity {
+         init.set_integrity(sri);
+     }
+-    let request = window.fetch_with_str_and_init(url, &init);
+-    let resp: web_sys::Response = JsFuture::from(request).await.map_err(js)?.dyn_into().map_err(|_| "not a Response")?;
+-    if !resp.ok() {
+-        return Err(format!("HTTP {}", resp.status()));
++    // A failed font server must not leave the whole editor waiting indefinitely, including
++    // servers that send headers but stall while streaming the body.
++    let controller = web_sys::AbortController::new().map_err(js)?;
++    init.set_signal(Some(&controller.signal()));
++    let abort = controller.clone();
++    let deadline = wasm_bindgen::closure::Closure::<dyn FnMut()>::new(move || abort.abort());
++    let timer = window.set_timeout_with_callback_and_timeout_and_arguments_0(deadline.as_ref().unchecked_ref(), 10_000).map_err(js)?;
++    let result = async {
++        let request = window.fetch_with_str_and_init(url, &init);
++        let resp: web_sys::Response = JsFuture::from(request).await.map_err(js)?.dyn_into().map_err(|_| "not a Response")?;
++        if !resp.ok() {
++            return Err(format!("HTTP {}", resp.status()));
++        }
++        let body = JsFuture::from(resp.array_buffer().map_err(js)?).await.map_err(js)?;
++        Ok(js_sys::Uint8Array::new(&body).to_vec())
+     }
+-    let body = JsFuture::from(resp.array_buffer().map_err(js)?).await.map_err(js)?;
+-    Ok(js_sys::Uint8Array::new(&body).to_vec())
++    .await;
++    window.clear_timeout_with_handle(timer);
++    result
+ }
+ 
+ /// Wraps the app to read dropped files asynchronously (browsers can't read them synchronously,
+@@ -459,7 +496,13 @@ fn local_storage() -> Option<web_sys::Storage> {
+ 
+ /// Trigger a browser download of `bytes` named after the last component of `path`.
+ fn download(path: &str, bytes: &[u8]) -> Result<(), String> {
+-    let js = |e: wasm_bindgen::JsValue| format!("{e:?}");
++    let js = |e: wasm_bindgen::JsValue| {
++        // Request failures are shown in a user notice as well as logged: never dump a WASM
++        // stack trace into the editor. Keep the browser's short reason, not Debug's stack.
++        e.dyn_ref::<js_sys::Error>()
++            .map(|error| format!("{}: {}", error.name(), error.message()))
++            .unwrap_or_else(|| "The browser could not complete or verify the download".into())
++    };
+     let name = std::path::Path::new(path).file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_else(|| "photocraft".into());
+     let window = web_sys::window().ok_or("no window")?;
+     let document = window.document().ok_or("no document")?;
+diff --git a/crates/ui-egui/src/dialogs.rs b/crates/ui-egui/src/dialogs.rs
+index 4a7f563..f6aa778 100644
+--- a/crates/ui-egui/src/dialogs.rs
++++ b/crates/ui-egui/src/dialogs.rs
+@@ -647,6 +647,8 @@ fn about_tab_body(app: &mut PhotocraftApp, ui: &mut egui::Ui, tab: &str) {
+         "models" => crate::credits::models_ui(ui),
+         _ => {
+             ui.label(tl!("PhotoCraft — an open-source, native image editor written in Rust."));
++            #[cfg(target_arch = "wasm32")]
++            ui.label("Friday Works build: automatic Be Vietnam Pro loading. Based on PhotoCraft by the ArtCraft team.");
+             ui.label(crate::i18n::fmt(tl!("Version {version}"), &[("version", &photocraft_engine::build_info::long_version())]));
+             ui.add_space(12.0);
+             ui.vertical_centered(|ui| {
+diff --git a/crates/ui-egui/src/links.rs b/crates/ui-egui/src/links.rs
+index e01a19d..0d8cded 100644
+--- a/crates/ui-egui/src/links.rs
++++ b/crates/ui-egui/src/links.rs
+@@ -45,7 +45,7 @@ pub fn discord_button(app: &mut PhotocraftApp, ui: &mut egui::Ui, min_width: f32
+ /// platform browser service) rather than `ui.hyperlink_to`, which uses the unreliable `ctx.open_url`.
+ pub fn link_row(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
+     let t = crate::theme::Tokens::get(ui.ctx());
+-    let links = [(tl!("PhotoCraft website"), APP_PAGE), (tl!("GitHub"), GITHUB), (tl!("ArtCraft"), ARTCRAFT_WEBSITE)];
++    let links = [(tl!("PhotoCraft website"), APP_PAGE), (tl!("GitHub"), GITHUB), ("Upstream team", ARTCRAFT_WEBSITE)];
+     let font = egui::FontId::proportional(12.5);
+     let sep = "  ·  ";
+     let width: f32 = links.iter().map(|(l, _)| ui.painter().layout_no_wrap((*l).into(), font.clone(), t.text).size().x).sum::<f32>()
+diff --git a/apps/photocraft-web/src/startup_fonts.rs b/apps/photocraft-web/src/startup_fonts.rs
+new file mode 100644
+index 0000000..4dc43c1
+--- /dev/null
++++ b/apps/photocraft-web/src/startup_fonts.rs
+@@ -0,0 +1,40 @@
++//! Friday Works' small host-supplied font set must be ready before document validation.
++//! This is registration, not replacement: a PSD's unrelated fonts remain untouched.
++use photocraft_ui_egui::served_fonts::ServedFont;
++
++pub const FAMILIES: &[&str] = &["Be Vietnam Pro"];
++
++pub fn required(fonts: &[ServedFont]) -> Vec<ServedFont> {
++    let mut result: Vec<ServedFont> = Vec::new();
++    for font in fonts {
++        if FAMILIES.contains(&font.family.as_str()) && !result.iter().any(|f| f.file == font.file) {
++            result.push(font.clone());
++        }
++    }
++    result
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    use photocraft_ui_egui::served_fonts::parse_manifest;
++
++    #[test]
++    fn preload_all_available_styles_once_without_substituting_other_families() {
++        let (fonts, _) = parse_manifest(
++            "Be Vietnam Pro | Regular | fonts/be.ttf\nBe Vietnam Pro | Bold | fonts/bold.ttf\nBe Vietnam Pro | Regular | fonts/be.ttf\nOther Family | Regular | fonts/other.ttf\n",
++        );
++        let result = required(&fonts);
++        assert_eq!(result.len(), 2);
++        assert_eq!(result[0].file, "fonts/be.ttf");
++        assert_eq!(result[1].file, "fonts/bold.ttf");
++        assert!(result.iter().all(|f| f.family == "Be Vietnam Pro"));
++    }
++
++    #[test]
++    fn invalid_or_missing_manifest_is_not_a_successful_preload() {
++        let (fonts, _) = parse_manifest("Be Vietnam Pro | Regular | https://example.com/font.ttf\n");
++        assert!(required(&fonts).is_empty());
++        assert!(required(&[]).is_empty());
++    }
++}

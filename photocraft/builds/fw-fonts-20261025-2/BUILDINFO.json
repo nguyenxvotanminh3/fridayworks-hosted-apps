@@ -1,0 +1,19 @@
+{
+  "baseRepository": "https://github.com/storytold/photocraft",
+  "baseTag": "v0.15.1",
+  "baseCommit": "60c87b9884fdae0e464614d482a3bc435cbbc578",
+  "distribution": "Friday Works fw-fonts-20261025-2",
+  "patchSHA256": "1e5f493338c07c5d1faa5e6c6e0d6a28738241dfcc0ae1ada04fb173d0f5989b",
+  "wasmSHA256": "bffd42f045cf5e5dfc87752dfe14752cf4555c4a5f37c73b384b754f9daa4235",
+  "wasmBytes": 26182212,
+  "compressedBytes": 11909258,
+  "sourcePatch": "fridayworks-auto-font.patch",
+  "buildTools": {
+    "rust": "1.96.0",
+    "trunk": "0.22.0",
+    "wasm-bindgen": "0.2.129",
+    "binaryen": "133"
+  },
+  "font": "Be Vietnam Pro Regular, unchanged Google Fonts file; SIL OFL 1.1",
+  "behavior": "Await host manifest and verified Be Vietnam Pro bytes, register in Rust font database before first interactive frame. Ten-second timeout per request; warning on failure; no substitution of other fonts."
+}

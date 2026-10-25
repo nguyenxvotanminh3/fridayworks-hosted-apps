@@ -10,7 +10,7 @@ This repository publishes open-source editors that [Friday Works](https://friday
 |---|---|---|---|---|
 | [`/photocraft/`](https://nguyenxvotanminh3.github.io/fridayworks-hosted-apps/photocraft/) | PhotoCraft, image editor — Friday Works modified build | 0.15.1 + fw-fonts-20261025-2 | [storytold/photocraft v0.15.1](https://github.com/storytold/photocraft/releases/tag/v0.15.1) | `987251cb84c375130fa3624fa1e1dbbea24b062192121b594c9e538d05ea9109` |
 | [`/filmcraft/`](https://nguyenxvotanminh3.github.io/fridayworks-hosted-apps/filmcraft/) | FilmCraft, video editor for computers | 0.12.0 | [storytold/filmcraft v0.12.0](https://github.com/storytold/filmcraft/releases/tag/v0.12.0) | `c62658f33781767909e180b464c1875ccf41e18465de3cdd1acd135381b8be74` |
-| [`/video/`](https://nguyenxvotanminh3.github.io/fridayworks-hosted-apps/video/) | Video editor for phones and computers, adapted from OpenCut | build of commit `810f1e4` | [OpenCut-app/OpenCut](https://github.com/OpenCut-app/OpenCut) `apps/web` at `cf5e79e`, modified | not applicable |
+| [`/video/`](https://nguyenxvotanminh3.github.io/fridayworks-hosted-apps/video/) | Video editor for phones and computers, adapted from OpenCut | build of commit `c9540a6` | [OpenCut-app/OpenCut](https://github.com/OpenCut-app/OpenCut) `apps/web` at `cf5e79e`, modified | not applicable |
 
 ## What each folder holds
 
@@ -83,7 +83,7 @@ Through `loader.html`, nothing else is stored apart from the apps' small setting
 
 FilmCraft's optional speech features (transcription and text-to-speech) download model weights from huggingface.co only after the user confirms a dialog that shows the size, source and licence.
 
-The video editor keeps the project and imported media in memory for the visit only: nothing is written to IndexedDB, OPFS, Cache Storage or a service worker, localStorage holds only small interface settings (about 0.6 KB of keyboard shortcuts after a typical session), and exports are downloads. Its automatic captions download a speech model from huggingface.co when the visitor starts them. Font previews and fonts load from this site and from Google Fonts when the visitor opens the font picker or picks a font.
+The video editor keeps the project and imported media in memory for the visit only: nothing of the visitor's is written to IndexedDB, OPFS or a service worker, and exports are downloads. localStorage keeps small interface settings (panel sizes, keyboard shortcuts, timeline and preview toggles) and the ids of recently used stickers. Its automatic captions download a public speech model from huggingface.co when the visitor starts them, and the browser keeps that model in its cache (Cache Storage) so it is not downloaded again. Font previews and fonts load from this site and from Google Fonts when the visitor opens the font picker or picks a font, and the safe-area guide menu loads platform logos from cdn.brandfetch.io. When the editor is embedded, it tells the embedding page only whether the video has changes that were never exported, so that page can ask before leaving.
 
 ## Updating
 

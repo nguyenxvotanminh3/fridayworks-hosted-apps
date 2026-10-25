@@ -27,6 +27,28 @@ This repository publishes open-source editors that [Friday Works](https://friday
 
 `.nojekyll` at the root makes GitHub Pages serve every file as it is, including the `_next/` folder.
 
+## Additional PhotoCraft fonts
+
+Friday Works serves **Be Vietnam Pro Regular** as an optional font alongside the unmodified
+PhotoCraft 0.15.1 runtime, using upstream's documented `fonts/manifest.txt` mechanism. The
+family appears in the Type font picker; its font file loads on demand when selected.
+
+- `photocraft/fonts/manifest.txt` lists the family, style, local path, licence, checksum and pinned source.
+- `photocraft/fonts/be-vietnam-pro/BeVietnamPro-Regular.ttf` is the unchanged Google Fonts file
+  at commit `c13390277dfb1fcc7415d84ef7ef9cfc1e52f8c1`, SHA-256
+  `cd1ef6e9d7db28ad5cdb88a65ccbe693870e60d340b791f349d248342b4fe4c3`.
+- `photocraft/fonts/be-vietnam-pro/OFL.txt` retains the complete SIL Open Font License 1.1 and
+  copyright 2021 The Be Vietnam Pro Project Authors.
+
+Only the Regular face is added. The font is served from this site; selecting it does not fetch
+it from Google. Adding these optional assets does not change any application JS or WASM files.
+A PSD does not embed this font automatically: in a fresh session, select the family to load it
+before relying on editable text. A missing-font warning can otherwise appear while a PSD's
+saved composite still looks correct.
+
+When replacing PhotoCraft with a later upstream release, retain this host-provided font folder
+and verify its manifest paths, licence and checksums, then repeat the text edit/save/reopen test.
+
 ## Loading page
 
 `loader.html` and `progress-sw.js` are Friday Works' own files, not part of either app.

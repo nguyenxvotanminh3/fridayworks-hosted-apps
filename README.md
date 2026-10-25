@@ -9,8 +9,8 @@ This repository publishes open-source editors that [Friday Works](https://friday
 | Path | App | Version | Upstream release | SHA-256 of the release zip |
 |---|---|---|---|---|
 | [`/photocraft/`](https://nguyenxvotanminh3.github.io/fridayworks-hosted-apps/photocraft/) | PhotoCraft, image editor — Friday Works modified build | 0.15.1 + fw-fonts-20261025-2 | [storytold/photocraft v0.15.1](https://github.com/storytold/photocraft/releases/tag/v0.15.1) | `987251cb84c375130fa3624fa1e1dbbea24b062192121b594c9e538d05ea9109` |
-| [`/filmcraft/`](https://nguyenxvotanminh3.github.io/fridayworks-hosted-apps/filmcraft/) | FilmCraft, video editor (no longer linked from the Friday Works site since 25/10/2026) | 0.12.0 | [storytold/filmcraft v0.12.0](https://github.com/storytold/filmcraft/releases/tag/v0.12.0) | `c62658f33781767909e180b464c1875ccf41e18465de3cdd1acd135381b8be74` |
-| [`/video/`](https://nguyenxvotanminh3.github.io/fridayworks-hosted-apps/video/) | Video editor for phones and computers, adapted from OpenCut | build of commit `6085997` | [OpenCut-app/OpenCut](https://github.com/OpenCut-app/OpenCut) `apps/web` at `cf5e79e`, modified | not applicable |
+| [`/filmcraft/`](https://nguyenxvotanminh3.github.io/fridayworks-hosted-apps/filmcraft/) | FilmCraft, video editor for computers | 0.12.0 | [storytold/filmcraft v0.12.0](https://github.com/storytold/filmcraft/releases/tag/v0.12.0) | `c62658f33781767909e180b464c1875ccf41e18465de3cdd1acd135381b8be74` |
+| [`/video/`](https://nguyenxvotanminh3.github.io/fridayworks-hosted-apps/video/) | Video editor for phones and computers, adapted from OpenCut | build of commit `810f1e4` | [OpenCut-app/OpenCut](https://github.com/OpenCut-app/OpenCut) `apps/web` at `cf5e79e`, modified | not applicable |
 
 ## What each folder holds
 

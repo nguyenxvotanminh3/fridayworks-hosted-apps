@@ -9,6 +9,9 @@ A browser video editor that works on phones as well as computers. It is a modifi
 - **Phone layout.** Narrow screens, and touch screens turned sideways, get a CapCut-style layout (`src/components/editor/mobile/`): the preview on top, the timeline below and the tools along the bottom edge. Asset tabs and clip properties open in a sheet over the timeline. The upstream "desktop only" screen is gone.
 - **Touch input.** The timeline, trim handles, playhead, preview handles and colour picker use pointer events. A swipe on an unselected clip scrolls the timeline, a tap selects it, and a selected clip can be dragged. Two fingers zoom the timeline. On touch screens a tap on a media, text or sticker card adds it.
 - **Quick import.** "Add" puts picked photos and videos straight onto the timeline one after another, and the frame takes the first clip's size, so vertical phone footage fills the frame.
+- **Vietnamese or English.** The phone layout, export panel, upload messages and the media, text and captions tabs follow `?lang=vi` / `?lang=en` (else the browser language). Vietnamese terms follow CapCut, Clipchamp, Canva and Google Photos (`src/i18n/index.ts`).
+- **Exports survive a stray tap.** Closing the export panel no longer cancels a running export (upstream issue #848); the Export button shows the percentage, and cancelling asks for a confirmation.
+- **Phone tool row.** Six buttons that always fit the screen (Add, Text, Effects, Ratio, Captions, More), a ratio menu (9:16, 16:9, 1:1, 4:3), and toasts placed under the top bar, clear of Export and of the tool menus; a toast still showing closes when the export panel opens.
 - **Smaller fixes.** New text is sized to the width of portrait frames, font previews load only when the font picker opens, and blob downloads are released after a delay so iOS Safari keeps them.
 
 ## Build

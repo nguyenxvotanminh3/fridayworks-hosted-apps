@@ -1,6 +1,6 @@
 # Friday Works video editor: command interface for AI agents
 
-> A video editor that runs in the browser, on phones and computers, made by Friday Works from OpenCut (MIT). Besides its touch interface it has a text command interface for AI agents, which can make a whole video with it: import clips, cut and arrange them, add text, captions, stickers, effects, masks and animation, check frames, and export an MP4. Nothing is uploaded: media stay in the visitor's browser and the export downloads to their device.
+> A video editor that runs in the browser, on phones and computers, made by Friday Works from OpenCut (MIT). Besides its touch interface it has a text command interface for AI agents, which can make a whole video with it: import clips, cut and arrange them, add text, captions, stickers, effects, masks, animation and transitions, analyse and clean up noisy sound, check frames, and export an MP4. Nothing is uploaded: media stay in the visitor's browser and the export downloads to their device.
 
 ## Where it is
 
@@ -13,7 +13,7 @@
 
 1. Run `state` to see the project: frame size, ratio, duration, media, and every element by track with its #n and id.
 2. Bring in media with `media import <url>` (the URL must allow cross-origin requests; data: URLs always work), or upload a file from the device with the page's file input ("Add media" / "Thêm video").
-3. Build the video with `project ratio`, `text add`, `captions generate` or `captions import`, `sticker add`, `element set`, `element timing`, `element trim`, `element split`, `effect add`, `mask add`, `keyframe add` and `speed`.
+3. Build the video with `project ratio`, `text add`, `captions generate` or `captions import`, `sticker add`, `element set`, `element timing`, `element trim`, `element split`, `transition add`, `effect add`, `mask add`, `keyframe add` and `speed`. Before changing sound, `audio analyze` tells voice from noise; `audio denoise` removes noise and keeps voices.
 4. Look at the result with `snapshot --at <seconds>` (a PNG data URL in data.png) and fix what looks wrong.
 5. Run `export` (or `export --preset tiktok`). The MP4 downloads to the user's device.
 
@@ -371,6 +371,57 @@ mask remove <element>
   <element>        The element: its id, an id prefix, #n from "state", "last" or "selected".
   Examples:
     mask remove #3
+```
+
+### Transitions
+
+```
+transition add <type> [--at <seconds>] [--element <ref>] [--duration <seconds>]
+  Adds a transition at a cut between two clips that touch on the main video track: dissolve (one shot melts into the next), fade (out to black and in), zoom, blur, or slide-left/right/up/down (the next shot pushes the previous one out). It is centred on the cut and the video keeps its length. A transition blends two shots; it cannot turn one object into another.
+  <type>           The transition. (one of dissolve, fade, zoom, blur, slide-left, slide-right, slide-up, slide-down)
+  --at             Time of the cut; the nearest cut within 1.5 s is used. Give this or --element.
+  --element        Or the clip that starts at the cut (#n, id, last or selected).
+  --duration       Length of the transition (0.1–3 s, at most the shorter clip). (default: 1)
+  Examples:
+    transition add dissolve --at 3
+    transition add slide-left --at 6 --duration 0.5
+    transition add fade --element #3
+```
+
+```
+transition remove [--at <seconds>] [--element <ref>]
+  Removes the transition at a cut.
+  --at             Time of the cut. Give this or --element.
+  --element        Or the clip that starts at the cut.
+  Examples:
+    transition remove --at 3
+```
+
+### Sound
+
+```
+audio analyze <element> [--from <seconds>] [--to <seconds>]
+  Listens to a clip's sound and reports, on the timeline, where someone speaks, where speech has background noise, where there is other sound (noise, wind, music) without a voice, and where it is quiet, with loudness in dBFS. Use it before changing sound, to tell noise from voice. The first use loads a 5 MB model.
+  <element>        The video or audio clip: #n, id, last or selected.
+  --from           Timeline time to start listening. (default: the clip's start)
+  --to             Timeline time to stop. (default: the clip's end)
+  Examples:
+    audio analyze #1
+    audio analyze #1 --from 2 --to 4
+```
+
+```
+audio denoise <element> [--from <seconds>] [--to <seconds>] [--strength <number>] [--off]
+  Removes background noise (wind, traffic, hum, crowd, hiss) from a video or audio clip and keeps voices, between two timeline times or over the whole clip. Built for speech: it can dull music. Noise without a voice is removed almost completely; noise under a voice is lowered. --off removes the cleaning.
+  <element>        The video or audio clip: #n, id, last or selected.
+  --from           Timeline time where cleaning starts. (default: the clip's start)
+  --to             Timeline time where it ends. (default: the clip's end)
+  --strength       0–100: how much of the cleaned sound replaces the original. (default: 100)
+  --off            Remove the noise reduction from the clip.
+  Examples:
+    audio denoise #1 --from 2 --to 4
+    audio denoise #1
+    audio denoise #1 --off
 ```
 
 ### Animation

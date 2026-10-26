@@ -1,0 +1,453 @@
+# Friday Works video editor: command interface for AI agents
+
+> A video editor that runs in the browser, on phones and computers, made by Friday Works from OpenCut (MIT). Besides its touch interface it has a text command interface for AI agents, which can make a whole video with it: import clips, cut and arrange them, add text, captions, stickers, effects, masks and animation, check frames, and export an MP4. Nothing is uploaded: media stay in the visitor's browser and the export downloads to their device.
+
+## Where it is
+
+- The editor: https://nguyenxvotanminh3.github.io/fridayworks-hosted-apps/video/ (add ?lang=vi for a Vietnamese interface). On fridayweworks.com it is embedded at https://fridayweworks.com/vi/tools/dung-video and https://fridayweworks.com/en/tools/video-editor.
+- Console: open https://nguyenxvotanminh3.github.io/fridayworks-hosted-apps/video/?ai=1 (or ?lang=vi&ai=1). A panel named "AI command console" appears beside the editor (below it on phones). Type commands in its "Command" box and press Enter; each command, its output and its JSON data appear in the "Command results" log.
+- JavaScript: `await window.fridayworksAI.run("state")` runs one or more command lines and resolves with one result per line: `{ ok, command, output, data, error, hint }`. `window.fridayworksAI.help()` and `window.fridayworksAI.commands()` describe every command.
+- WebMCP: in browsers that support WebMCP, the page registers one tool per command (video_state, video_text_add, video_export, …) plus video_run_script.
+
+## How to work
+
+1. Run `state` to see the project: frame size, ratio, duration, media, and every element by track with its #n and id.
+2. Bring in media with `media import <url>` (the URL must allow cross-origin requests; data: URLs always work), or upload a file from the device with the page's file input ("Add media" / "Thêm video").
+3. Build the video with `project ratio`, `text add`, `captions generate` or `captions import`, `sticker add`, `element set`, `element timing`, `element trim`, `element split`, `effect add`, `mask add`, `keyframe add` and `speed`.
+4. Look at the result with `snapshot --at <seconds>` (a PNG data URL in data.png) and fix what looks wrong.
+5. Run `export` (or `export --preset tiktok`). The MP4 downloads to the user's device.
+
+Rules of thumb:
+- Times are in seconds ("2.5", "0:02.5"). Elements are referred to by #n from `state`, by id or id prefix, or as `last` (the element added last) or `selected`. Numbers change after deletions, so run `state` again.
+- Text does not wrap by itself: put \n inside the quotes where a line should break, then check with `snapshot`.
+- Every error says what was wrong and usually how to fix it (a "hint"). `undo` reverts the last change.
+- `captions generate` downloads a speech model the first time (about 150 MB) and can take minutes. `captions import` with SRT text is instant.
+
+## Commands
+
+### Basics
+
+```
+help [<command>] [--json]
+  Lists the commands, or explains one. --json gives every command with its arguments as JSON.
+  <command>        A command name, e.g. "text add".
+  --json           Return the full command list as JSON data.
+  Examples:
+    help
+    help text add
+    help --json
+```
+
+```
+state
+  Describes the project: size, ratio, fps, background, duration, playhead, media, and every element by track (top layer first) with its #n, id, type, times and text.
+  Examples:
+    state
+```
+
+```
+snapshot [--at <seconds>] [--max <number>]
+  Renders the frame at a time as a PNG (data.png is a data: URL) so you can check the layout. Moves the playhead there.
+  --at             Time to render. (default: the playhead)
+  --max            Longest side of the image in pixels. (default: 640)
+  Examples:
+    snapshot --at 2
+    snapshot --at 0 --max 1080
+```
+
+### Project
+
+```
+project ratio <ratio>
+  Sets the frame to a preset size: 9:16 is 1080×1920 (TikTok, Reels, Shorts), 16:9 is 1920×1080 (YouTube), 1:1 is 1080×1080, 4:3 is 1440×1080. Elements keep their positions.
+  <ratio>          The aspect ratio. (one of 9:16, 16:9, 1:1, 4:3)
+  Examples:
+    project ratio 9:16
+```
+
+```
+project size <width> <height>
+  Sets a custom frame size in pixels.
+  <width>          Width in pixels.
+  <height>         Height in pixels.
+  Examples:
+    project size 1080 1350
+```
+
+```
+project fps <fps>
+  Sets the frame rate.
+  <fps>            Frames per second. (one of 24, 25, 30, 60, 120)
+  Examples:
+    project fps 30
+```
+
+```
+project background [--color <color>] [--blur <light|medium|heavy>]
+  Sets what shows behind the clips: a colour, or a blurred copy of the main clip.
+  --color          A colour such as #000000 or white.
+  --blur           Blur the main clip behind itself instead. (one of light, medium, heavy)
+  Examples:
+    project background --color #101820
+    project background --blur medium
+```
+
+```
+project rename <name>
+  Renames the project. The exported file takes this name.
+  <name>           The new name.
+  Examples:
+    project rename "Ra mắt sản phẩm"
+```
+
+### Media
+
+```
+media import <url> [--name <string>] [--start <seconds>] [--timeline]
+  Downloads a video, image or audio file into the project and puts it on the timeline (videos and images after the last clip, audio at the playhead). The URL must allow cross-origin requests (CORS); data: URLs always work. For a file on the user's device, upload it with the page's file input ("Add media" / "Thêm video") instead.
+  <url>            https:// or data: URL of the file.
+  --name           File name to use, with its extension. (default: from the URL)
+  --start          Put it at this time instead.
+  --timeline       Put it on the timeline; --no-timeline only adds it to the media list. (default: true)
+  Examples:
+    media import https://example.com/clip.mp4
+    media import https://example.com/song.mp3 --start 0
+    media import https://example.com/logo.png --no-timeline
+```
+
+```
+media list
+  Lists the imported files with their ids, types, durations and sizes.
+  Examples:
+    media list
+```
+
+```
+media add <asset> [--start <seconds>]
+  Puts an imported file on the timeline (again).
+  <asset>          The media id or id prefix from "media list".
+  --start          Timeline time it starts at, in seconds. (default: the playhead)
+  Examples:
+    media add 3f9a --start 6
+```
+
+### Text
+
+```
+text add <content> [--start <seconds>] [--duration <seconds>] [--look <outline|yellow|box|large|soft|plain>] [--size <number>] [--font <string>] [--color <color>] [--bold] [--italic] [--align <left|center|right>] [--place <top|middle|bottom>] [--x <number>] [--y <number>] [--outline <color>] [--shadow <color>] [--box <color>]
+  Adds a text element. Use \n inside quotes for a new line. Font size is in editor units (5 is subtitle size, 15 is a title on a landscape frame).
+  <content>        The text.
+  --start          Timeline time it starts at, in seconds. (default: the playhead)
+  --duration       How long it lasts, in seconds. (default: 5)
+  --look           A ready-made caption look (sets colour, outline, shadow, box and size). (one of outline, yellow, box, large, soft, plain)
+  --size           Font size in editor units.
+  --font           Font family, e.g. "Be Vietnam Pro" (any Google Font; "fonts" lists the ones with Vietnamese).
+  --color          Text colour.
+  --bold           Bold text.
+  --italic         Italic text.
+  --align          Text alignment. (one of left, center, right)
+  --place          Vertical place in the frame. (one of top, middle, bottom; default: middle)
+  --x              Horizontal offset from the centre, in pixels (+ is right).
+  --y              Vertical offset from the centre, in pixels (+ is down). Overrides --place.
+  --outline        Outline colour (turns the outline on).
+  --shadow         Drop shadow colour (turns the shadow on).
+  --box            Background box colour (turns the box on).
+  Examples:
+    text add "Xin chào!" --start 0 --duration 3 --size 12 --outline black --place top
+    text add "Giảm 50%\nHôm nay thôi" --look yellow --place bottom
+```
+
+```
+fonts [<search>] [--vietnamese]
+  Lists font families. --vietnamese keeps only fonts that draw every Vietnamese tone mark.
+  <search>         Part of a font name.
+  --vietnamese     Only fonts with the Vietnamese subset.
+  Examples:
+    fonts --vietnamese
+    fonts be vietnam
+```
+
+### Captions
+
+```
+captions generate [--lang <string>] [--model <base|small>] [--look <outline|yellow|box|large|soft|plain>]
+  Transcribes the timeline's audio in the browser with Whisper and adds the captions on a new text track. The first run downloads the model (about 150 MB for base, 300 MB for small); it can take minutes. Vietnamese captions are cut by length.
+  --lang           Language code such as vi, en, ja, or auto. (default: auto)
+  --model          base is faster and lighter, small is more accurate. (one of base, small; default: base)
+  --look           Caption look. (one of outline, yellow, box, large, soft, plain; default: outline)
+  Examples:
+    captions generate --lang vi --look yellow
+```
+
+```
+captions import <subtitles> [--look <outline|yellow|box|large|soft|plain>]
+  Adds captions from SRT or ASS text (or a URL to such a file) on a new text track. SRT takes the look; ASS keeps its own styles.
+  <subtitles>      The SRT/ASS text (\n for new lines) or an https:// URL.
+  --look           Caption look for SRT. (one of outline, yellow, box, large, soft, plain; default: outline)
+  Examples:
+    captions import "1\n00:00:00,000 --> 00:00:02,000\nXin chào\n\n2\n00:00:02,000 --> 00:00:04,000\nCảm ơn bạn"
+```
+
+```
+captions looks
+  Lists the ready-made caption looks.
+  Examples:
+    captions looks
+```
+
+### Elements
+
+```
+element info <element>
+  Shows one element: its timing, and every parameter you can set with "element set", with its current value, type and range.
+  <element>        The element: its id, an id prefix, #n from "state", "last" or "selected".
+  Examples:
+    element info #1
+    element info last
+```
+
+```
+element set <element> [key=value ...]
+  Sets parameters of an element, e.g. position, scale, rotation, opacity, volume (dB), text, font, colours, outline, shadow and box. "element info" lists them. Values are checked and clamped.
+  <element>        The element: its id, an id prefix, #n from "state", "last" or "selected".
+  key=value        One or more parameter=value pairs, e.g. opacity=0.5 transform.positionY=600 color=#ffd84d stroke.enabled=true.
+  Examples:
+    element set #1 opacity=0.8 transform.scaleX=1.2 transform.scaleY=1.2
+    element set last content="Xin chào" fontSize=8
+    element set #3 volume=-6
+```
+
+```
+element timing <element> [--start <seconds>] [--duration <seconds>]
+  Moves an element and/or changes how long it lasts. For video and audio clips, --duration trims or extends the end (within the source).
+  <element>        The element: its id, an id prefix, #n from "state", "last" or "selected".
+  --start          Timeline time it starts at, in seconds. (default: the playhead)
+  --duration       New length in seconds.
+  Examples:
+    element timing #2 --start 1.5 --duration 4
+```
+
+```
+element trim <element> [--from <seconds>] [--to <seconds>]
+  Chooses which part of a video or audio file the clip plays, in seconds of the source file. The clip keeps its start time.
+  <element>        The element: its id, an id prefix, #n from "state", "last" or "selected".
+  --from           Source time the clip begins with. (default: 0)
+  --to             Source time the clip ends with. (default: the end of the file)
+  Examples:
+    element trim #3 --from 2 --to 7.5
+```
+
+```
+element split <element> --at <seconds>
+  Cuts an element in two at a timeline time. The right part becomes "last".
+  <element>        The element: its id, an id prefix, #n from "state", "last" or "selected".
+  --at             Timeline time of the cut.
+  Examples:
+    element split #3 --at 4
+```
+
+```
+element duplicate <element>
+  Copies an element onto a new track at the same time. The copy becomes "last".
+  <element>        The element: its id, an id prefix, #n from "state", "last" or "selected".
+  Examples:
+    element duplicate #1
+```
+
+```
+element delete <element>
+  Deletes an element.
+  <element>        The element: its id, an id prefix, #n from "state", "last" or "selected".
+  Examples:
+    element delete #4
+```
+
+```
+element mute <element> [--on]
+  Mutes a video or audio clip (--no-on unmutes).
+  <element>        The element: its id, an id prefix, #n from "state", "last" or "selected".
+  --on             Mute (true) or unmute (false). (default: true)
+  Examples:
+    element mute #3
+    element mute #3 --no-on
+```
+
+```
+element hide <element> [--on]
+  Hides a visual element (--no-on shows it again).
+  <element>        The element: its id, an id prefix, #n from "state", "last" or "selected".
+  --on             Hide (true) or show (false). (default: true)
+  Examples:
+    element hide #2
+```
+
+```
+element select <element>
+  Selects an element in the editor, so "selected" refers to it.
+  <element>        The element: its id, an id prefix, #n from "state", "last" or "selected".
+  Examples:
+    element select #2
+```
+
+```
+speed <element> <rate> [--keep-pitch]
+  Changes the playback speed of a video or audio clip (0.1 to 5). The clip's length changes with it.
+  <element>        The element: its id, an id prefix, #n from "state", "last" or "selected".
+  <rate>           Speed factor: 2 is twice as fast, 0.5 half.
+  --keep-pitch     Keep the voice's pitch.
+  Examples:
+    speed #3 1.5 --keep-pitch
+```
+
+### Stickers and shapes
+
+```
+sticker add <sticker> [--start <seconds>] [--duration <seconds>]
+  Adds a sticker: a flag (flags:VN, flags:US …) or a shape (shapes:rectangle, shapes:ellipse, shapes:polygon, shapes:star). "sticker search" finds ids.
+  <sticker>        Sticker id.
+  --start          Timeline time it starts at, in seconds. (default: the playhead)
+  --duration       How long it lasts, in seconds. (default: 5)
+  Examples:
+    sticker add flags:VN --start 0 --duration 3
+    sticker add shapes:star
+```
+
+```
+sticker search <query>
+  Finds stickers by name (country names work in English or Vietnamese).
+  <query>          Search words.
+  Examples:
+    sticker search viet nam
+    sticker search star
+```
+
+### Effects and masks
+
+```
+effect add <element> <effect> [--intensity <number>]
+  Adds an effect to one element. This build has one effect: blur (intensity 0–100).
+  <element>        The element: its id, an id prefix, #n from "state", "last" or "selected".
+  <effect>         The effect. (one of blur)
+  --intensity      Effect strength. (default: 15)
+  Examples:
+    effect add #3 blur --intensity 40
+```
+
+```
+effect layer <effect> [--start <seconds>] [--duration <seconds>] [--intensity <number>]
+  Adds an effect as its own layer, which applies to everything below it for its time span.
+  <effect>         The effect. (one of blur)
+  --start          Timeline time it starts at, in seconds. (default: the playhead)
+  --duration       How long it lasts, in seconds. (default: 5)
+  --intensity      Effect strength. (default: 15)
+  Examples:
+    effect layer blur --start 0 --duration 2 --intensity 60
+```
+
+```
+effect remove <element>
+  Removes all effects from an element.
+  <element>        The element: its id, an id prefix, #n from "state", "last" or "selected".
+  Examples:
+    effect remove #3
+```
+
+```
+mask add <element> <shape> [--invert] [--feather <number>]
+  Masks a video, image or shape so only part of it shows (one mask per element).
+  <element>        The element: its id, an id prefix, #n from "state", "last" or "selected".
+  <shape>          Mask shape. (one of rectangle, ellipse, heart, diamond, star, split, cinematic-bars)
+  --invert         Show the outside instead.
+  --feather        Soft edge, 0–100.
+  Examples:
+    mask add #3 ellipse --feather 20
+    mask add #3 cinematic-bars
+```
+
+```
+mask remove <element>
+  Removes the mask of an element.
+  <element>        The element: its id, an id prefix, #n from "state", "last" or "selected".
+  Examples:
+    mask remove #3
+```
+
+### Animation
+
+```
+keyframe add <element> <param> --at <seconds> --value <string> [--curve <linear|hold|bezier>]
+  Animates a parameter: sets its value at a timeline time. Two keyframes or more make it change smoothly. Works for position, scale, rotation, opacity, colours and volume.
+  <element>        The element: its id, an id prefix, #n from "state", "last" or "selected".
+  <param>          Parameter key from "element info", e.g. opacity or transform.scaleX.
+  --at             Timeline time, inside the element.
+  --value          The value at that time.
+  --curve          How it moves to the next keyframe. (one of linear, hold, bezier; default: linear)
+  Examples:
+    keyframe add #1 opacity --at 0 --value 0
+    keyframe add #1 opacity --at 0.5 --value 1
+```
+
+```
+keyframe remove <element> <param> --at <seconds>
+  Removes the keyframe of a parameter at a timeline time.
+  <element>        The element: its id, an id prefix, #n from "state", "last" or "selected".
+  <param>          Parameter key.
+  --at             Timeline time of the keyframe.
+  Examples:
+    keyframe remove #1 opacity --at 0
+```
+
+### Playback and history
+
+```
+seek <time>
+  Moves the playhead. New text and stickers start at the playhead unless --start is given.
+  <time>           Timeline time.
+  Examples:
+    seek 2.5
+```
+
+```
+play
+  Plays from the playhead (the picture only, unless someone has tapped the page).
+  Examples:
+    play
+```
+
+```
+pause
+  Pauses playback.
+  Examples:
+    pause
+```
+
+```
+undo
+  Undoes the last change.
+  Examples:
+    undo
+```
+
+```
+redo
+  Redoes the last undone change.
+  Examples:
+    redo
+```
+
+### Output
+
+```
+export [--format <mp4|webm>] [--quality <low|medium|high|very_high>] [--size <original|1080p>] [--preset <tiktok|youtube>] [--audio] [--download]
+  Renders the video and downloads it to the user's device (named after the project). Takes about as long as the video, longer on phones. --preset tiktok frames 9:16, youtube 16:9, both MP4 at most 1080p.
+  --format         File format. (one of mp4, webm; default: mp4)
+  --quality        Quality. (one of low, medium, high, very_high; default: high)
+  --size           Keep the frame size, or cap the short side at 1080. (one of original, 1080p; default: original)
+  --preset         One-step framing and settings for a platform. (one of tiktok, youtube)
+  --audio          Include sound (--no-audio for a silent video). (default: true)
+  --download       Download the file (--no-download only reports its size). (default: true)
+  Examples:
+    export
+    export --preset tiktok
+    export --format webm --quality medium --no-audio
+```

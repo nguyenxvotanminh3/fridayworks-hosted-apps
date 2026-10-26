@@ -20,6 +20,7 @@
 Rules of thumb:
 - Times are in seconds ("2.5", "0:02.5"). Elements are referred to by #n from `state`, by id or id prefix, or as `last` (the element added last) or `selected`. Numbers change after deletions, so run `state` again.
 - Text does not wrap by itself: put \n inside the quotes where a line should break, then check with `snapshot`.
+- One command per line; "; " (a semicolon and a space) also separates commands, while a semicolon inside a value such as data:video/mp4;base64,… does not.
 - Every error says what was wrong and usually how to fix it (a "hint"). `undo` reverts the last change.
 - `captions generate` downloads a speech model the first time (about 150 MB) and can take minutes. `captions import` with SRT text is instant.
 

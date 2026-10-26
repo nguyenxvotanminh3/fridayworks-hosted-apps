@@ -77,13 +77,13 @@ The video editor is a modified copy of OpenCut, released under the MIT License, 
 
 ## Privacy
 
-All the apps run entirely in the visitor's browser. Files are opened from the visitor's device, and every save or export is a download back to it. This site has no server-side code, analytics or cookies.
+All the apps run entirely in the visitor's browser. Files are opened from the visitor's device, and every save or export goes back to it: a download or, in the video editor on phones, the phone's own share sheet, where the visitor picks where the video goes. This site has no server-side code, analytics or cookies.
 
 Through `loader.html`, nothing else is stored apart from the apps' small settings: PhotoCraft's preferences and brush presets. FilmCraft would normally copy every imported video into this site's browser storage (OPFS) for crash recovery. The loader shows FilmCraft a browser without OPFS (FilmCraft checks before every write) and deletes copies left by earlier visits. In exchange, an unexported FilmCraft project is not recovered after the tab closes.
 
 FilmCraft's optional speech features (transcription and text-to-speech) download model weights from huggingface.co only after the user confirms a dialog that shows the size, source and licence.
 
-The video editor keeps the project and imported media in memory for the visit only: nothing of the visitor's is written to IndexedDB, OPFS or a service worker, and exports are downloads. localStorage keeps small interface settings (panel sizes, keyboard shortcuts, timeline and preview toggles) and the ids of recently used stickers. Its automatic captions download a public speech model from huggingface.co when the visitor starts them, and the browser keeps that model in its cache (Cache Storage) so it is not downloaded again. Font previews and fonts load from this site and from Google Fonts when the visitor opens the font picker or picks a font, and the safe-area guide menu loads platform logos from cdn.brandfetch.io. When the editor is embedded, it tells the embedding page only whether the video has changes that were never exported, so that page can ask before leaving.
+The video editor keeps the project and imported media in memory for the visit only: nothing of the visitor's is written to IndexedDB, OPFS or a service worker, and exports are downloads or, on phones, go to the phone's share sheet. localStorage keeps small interface settings (panel sizes, keyboard shortcuts, timeline and preview toggles) and the ids of recently used stickers. Its automatic captions download a public speech model from huggingface.co when the visitor starts them, and the browser keeps that model in its cache (Cache Storage) so it is not downloaded again. Font previews and fonts load from this site and from Google Fonts when the visitor opens the font picker or picks a font, and the safe-area guide menu loads platform logos from cdn.brandfetch.io. When the editor is embedded, it tells the embedding page only whether the video has changes that were never exported, so that page can ask before leaving.
 
 ## Updating
 
